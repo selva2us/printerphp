@@ -11,7 +11,7 @@ function addQueue($db, $name) {
 }
 
 function delQueue($db, $id) {
-	$sql ="DELETE FROM Queues WHERE `id`='".$id."'";
+	$sql ="DELETE FROM Queues WHERE id='".$id."'";
     $affected = pg_query($db, $sql);
 
     if (!isset($affected)) {
@@ -20,7 +20,7 @@ function delQueue($db, $id) {
 }
 
 function resetQueue($db, $id) {
-	$sql ="UPDATE Queues SET 'position' = 1 WHERE `id`='".$id."'";
+	$sql ="UPDATE Queues SET position = 1 WHERE id='".$id."'";
     $affected = pg_query($db, $sql);
 
     if (!isset($affected)) {

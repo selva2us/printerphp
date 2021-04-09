@@ -22,7 +22,7 @@ function UpdateDeviceTable() {
         .done(function(data) {
             var table = "<table>"
 
-            table += "<thead><tr><th>Device</th><th style='width: 200px'>Status</th><th style='width: 150px'>Queue</th><th>Client Type</th><th>Last Connection</th><th></th></thead>";
+            table += "<thead><tr><th>Device</th><th style='width: 200px'>Status</th><th style='width: 150px'>Queue</th><th>Client Type</th><th>Last Connection</th><th>MerchantIdKey</th><th></th></thead>";
             table += '<tfoot><tr><td colspan="6"><div id="no-paging">&nbsp;<a href="javascript:NewDevice();">Register A New Device</a></div></tr></tfoot>';
 
             for(var i = 0; i < data.length; i++)
@@ -38,6 +38,7 @@ function UpdateDeviceTable() {
                 table += "<td>" + device.queueName + "</td>";
                 table += "<td>" + device.clientType + " (" + device.clientVersion + ")</td>";
                 table += "<td>" + lastConnect.toLocaleString() + "</td>";
+                table += "<td>" + device.idKey + "</td>";
 
                 table += "<td>";
                 table += "<a href='print.html?mac=" + device.mac +"'>Show</a>";
@@ -53,7 +54,9 @@ function UpdateDeviceTable() {
 
             setTimeout(UpdateDeviceTable, 2000);
         })
-        .fail(function() {
+        .fail(function(xhr, status) {
+            console.log(xhr.responseText);
+            console.log(status);
             setTimeout(UpdateDeviceTable, 10000);
         });               
 }
@@ -98,11 +101,13 @@ function NewDevice()
 {
     var newMac = prompt("Please enter the Mac address of the device to be registered", "");
     var newQ = prompt("Ender the ID of the queue to associate with the new device", "");
+    var email = prompt("Ender the merchant id key to associate with the new device", "");
+
 
     var lowerMac = newMac.toString().toLowerCase();
     newMac = lowerMac;
 
-    $.get("devices.php?new=" + newMac + "&queue=" + newQ);
+    $.get("devices.php?new=" + newMac + "&queue=" + newQ + "&email=" + email);
 }
 
 function delDevice(mac)

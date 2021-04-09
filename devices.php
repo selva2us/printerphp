@@ -4,7 +4,7 @@
 $deviceTimeout = 10;    // specify the timeout after which devices will be considered to have lost connection
 
 function addDevice($db, $mac, $queue) {
-	$sql ="INSERT INTO Devices(DeviceMac, QueueID) VALUES ('".$mac."', '".$queue."')";
+    $sql ="INSERT INTO Devices(DeviceMac, QueueID, idKey) VALUES ('".$mac."', '".$queue."','".$email."')";
     $affected = pg_query($db, $sql);
     if (!isset($affected)) {
         http_response_code(500);
@@ -22,9 +22,8 @@ function delDevice($db, $mac) {
 
 function listDevices($db) {
     global $deviceTimeout;
-	$sql ="SELECT DeviceMac, Status, QueueID, Queues.name, ClientType, ClientVersion, LastPoll FROM Devices INNER JOIN Queues ON Queues.id = Devices.QueueID";
+	$sql ="SELECT DeviceMac, Status, QueueID, Queues.name, ClientType, ClientVersion, LastPoll, idKey FROM Devices INNER JOIN Queues ON Queues.id = Devices.QueueID";
     $results = pg_query($db, $sql);
-	
     $rdata = array();
     $count = 0;
 
@@ -33,7 +32,6 @@ function listDevices($db) {
 
         while ($row = pg_fetch_row($results)) {
             $lpt = 0;    // last polling time
-             echo $row[6];
             if (intval($row[6]) > 0) {
                 $lpt = intval($row[6]);
             }
@@ -54,6 +52,7 @@ function listDevices($db) {
             $rdata[$count] += array("clientVersion" => strval($row[5]));
             $rdata[$count] += array("lastConnection" => strval($row[6]));
             $rdata[$count] += array("lastPolledTime" => strval($secondsElapsed));
+            $rdata[$count] += array("idKey" => strval($row[7]));
 
             $count++;
         }
@@ -81,6 +80,10 @@ function handleGETRequest() {
         $queue = $_GET['queue'];
     }
 
+    if (!empty($_GET['email'])) {    
+        $email = $_GET['email'];
+    }
+
     if (!empty($_GET['del'])) {
         $del = $_GET['del'];
     }
@@ -90,8 +93,8 @@ function handleGETRequest() {
         return;
     }
 
-    if (isset($new) && isset($queue)) {
-        addDevice($db, $new, $queue);
+    if (isset($new) && isset($queue) && isset($email)) {
+        addDevice($db, $new, $queue ,$email);
     } elseif (isset($del)) {
         delDevice($db, $del);
     } else {

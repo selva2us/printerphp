@@ -56,43 +56,49 @@ function getCPConvertedJob($inputFile, $outputFormat, $deviceWidth, $outputFile)
 /*
 	Create the print job using Star Markup 
 */
-function renderMarkupJob($filename, $position, $queue, $design) {
+function renderMarkupJob($filename, $position, $queue, $design, $email,$printid) {
     $file = fopen($filename, 'w+');
 
     if ($file != FALSE) {
-        fwrite($file, "[align: centre][font: a]\n");
-        fwrite($file, "[magnify: width 2; height 1]\n");
-        fwrite($file, "Foobar!\n");
-        if (isset($design['Logo'])) {
-            fwrite($file, "[image: url ".$design['Logo']."; width 100%]\n");
-        }
-        fwrite($file, "[magnify: width 3; height 2]Columns[magnify]");
-        fwrite($file, "[align: left]\n");
-        fwrite($file, "[column: left: Order Type: Dine-in ||    right: Order no:  order no] \n ");
-        fwrite($file, "[column: left: Table no: table no  ||    right: Coaster: XXXX]\n ");
-        fwrite($file, "[column: left: Time of Order: 12-10-2020 10:30Am ]\n ");
-        fwrite($file, "[align: left]\n");
-        fwrite($file, "[column: left: Item 1;      right: $10.00]\n");
-        fwrite($file, "[column: left: Item 2;      right: $15.00]\n");
-        fwrite($file, "[column: left: Item 3;      right: $16.00]\n");
+        $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid;
+        //$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/foobarappmsttest@gmail.com?token=514b6eb5-a166-455c-98e3-a858c08ba5ad';
+	$json_data = file_get_contents($api_url);
+        //echo $json_data;
+	fwrite($file,$json_data);
+
+        //fwrite($file, "[align: centre][font: a]\n");
+        //fwrite($file, "[magnify: width 2; height 1]\n");
+        //fwrite($file, "Foobar!\n");
+        //if (isset($design['Logo'])) {
+          //  fwrite($file, "[image: url ".$design['Logo']."; width 100%]\n");
+        //}
+        //fwrite($file, "[magnify: width 3; height 2]Columns[magnify]");
+        //fwrite($file, "[align: left]\n");
+        //fwrite($file, "[column: left: Order Type: Dine-in ||    right: Order no:  order no] \n ");
+        //fwrite($file, "[column: left: Table no: table no  ||    right: Coaster: XXXX]\n ");
+        //fwrite($file, "[column: left: Time of Order: 12-10-2020 10:30Am ]\n ");
+        //fwrite($file, "[align: left]\n");
+        //fwrite($file, "[column: left: Item 1;      right: $10.00]\n");
+        //fwrite($file, "[column: left: Item 2;      right: $15.00]\n");
+        //fwrite($file, "[column: left: Item 3;      right: $16.00]\n");
 
  
-        if (isset($design['Header'])) {
-            fwrite($file, $design['Header']."\n");
-        }
+        //if (isset($design['Header'])) {
+          //  fwrite($file, $design['Header']."\n");
+        //}
 
-        fwrite($file, "[align: centre]");
-        fwrite($file, "[mag: w 4; h 4]".$position."[mag]\n");
+        //fwrite($file, "[align: centre]");
+        //fwrite($file, "[mag: w 4; h 4]".$position."[mag]\n");
 
-        if (isset($design['Footer'])) {
-            fwrite($file, $design['Footer']."\n");
-        }
+        //if (isset($design['Footer'])) {
+          //  fwrite($file, $design['Footer']."\n");
+        //}
 
-        if (isset($design['Coupon'])) {
-            fwrite($file, "[image: url ".$design['Coupon']."; width 100%]\n");
-        }
+        //if (isset($design['Coupon'])) {
+          //  fwrite($file, "[image: url ".$design['Coupon']."; width 100%]\n");
+        //}
 
-        fwrite($file, "[cut]");
+       // fwrite($file, "[cut]");
 
         fclose($file);
     }
@@ -134,6 +140,19 @@ function handleCloudPRNTGetJob($db) {
     // NOTE: using temporary files is usually very fast, because they will be generated in /tmp which is generally a RAM based filesystem
     //       but, this depends on the OS and distribution. If these files will be written to physical media then it may harm performance
     //       and cause unnecessary writes to disk.
+    $mac = $_GET['mac'];
+    $sql ="SELECT idKey, printid FROM Devices WHERE DeviceMac = '".$mac."';";
+    $results = pg_query($db, $sql);
+    $email ="";
+    $printid = "";
+    if (isset($results)) {
+        $row = pg_fetch_row($results);     // fetch next row
+        $email = $row[0];
+        $printid = $row[1];       
+    } else {
+        // error message
+    }
+
     $basefile = tempnam(sys_get_temp_dir(), "markup");
     $markupfile = $basefile.".stm";                                                    // cputil used the filename to determing the format of the job that it is to convert
     $outputfile = tempnam(sys_get_temp_dir(), "output");
@@ -141,7 +160,7 @@ function handleCloudPRNTGetJob($db) {
     list($position, $queue, $width) = getDevicePrintingRequired($db, $_GET['mac']);    // Find which queue and position is pending for this printer
     $ticketDesign = getQueuePrintParameters($db, $queue);                              // Get design fields for this queue
     
-    renderMarkupJob($markupfile, $position, $queue, $ticketDesign);
+    renderMarkupJob($markupfile, $position, $queue, $ticketDesign, $email,$printid);
     
     getCPConvertedJob($markupfile, $content_type, $width, $outputfile);                // convert the Star Markup job into the format requested
                                                                                        // by the CloudPRNT device
@@ -259,6 +278,38 @@ function handleCloudPRNTPoll($db) {
     $pollResponse['jobReady'] = false;    // set jobReady to false by default, this is enough to provide the minimum cloudprnt response
     //$pollResponse['deleteMethod'] = "GET";    // set jobReady to false by default, this is enough to provide the minimum cloudprnt response
 
+     	$mac = $parsed['printerMAC'];
+	$sql ="SELECT idKey FROM Devices WHERE DeviceMac = '".$mac."';";
+	$results = pg_query($db, $sql);
+	$email ="";
+	if (isset($results)) {
+        $row = pg_fetch_row($results);     // fetch next row
+        $email = $row[0];
+       
+    } else {
+        // error message
+    }
+    $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email;
+	// use key 'http' even if you send the request to https://...
+	$options = array(
+	'http' => array(
+    'method'  => 'POST',
+    'content' => json_encode( $parsed ),
+    'header'=>  "Content-Type: application/json\r\n" .
+                "Accept: application/json\r\n"
+		)
+	);
+
+	$context  = stream_context_create($options);
+	$result = file_get_contents($api_url, false, $context);
+	if ($result === FALSE) { /* Handle error */ }
+	$response= json_decode($result,true);
+	if($response['jobReady'] == true){	
+            $printid = $response['jobToken'];
+            $sql ="UPDATE Devices SET printing = 1 , printid = '".$printid."' WHERE DeviceMac= '".$mac."'";	
+            $res = pg_query($db, $sql);
+	}
+
     $deviceRegistered = setDeviceStatus($db, $parsed['printerMAC'], urldecode($parsed['statusCode']));
 
     if (!$deviceRegistered) {
@@ -319,13 +370,30 @@ function handleCloudPRNTPoll($db) {
 	Clear a print job from the database, for the specified printer, but setting it's 'Position' field to 'null'
 */
 function setCompleteJob($db, $mac) {
-	$sql="UPDATE Devices SET Printing = 0 WHERE DeviceMac = '".$mac."';";
-	$affected = pg_query($db, $sql);
+       	$ssql ="SELECT idKey , printid FROM Devices WHERE DeviceMac = '".$mac."';";
+	$result = pg_query($db, $ssql);
 
+          $row = pg_fetch_row($result);     // fetch next row
+        $email = $row[0]; 
+        $printid = $row[1];		
+		$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&code=OK';
+		$options = array(
+			'http' => array(
+			'method'  => 'DELETE',		
+			'header'=>  "Content-Type: application/json\r\n" .
+						"Accept: application/json\r\n"
+				)
+		);
+		$context  = stream_context_create($options);
+		$results = file_get_contents($api_url, false, $context);
+
+	$sql="UPDATE Devices SET Printing = 0 , printid = '' WHERE DeviceMac = '".$mac."';";
+	$affected = pg_query($db, $sql);
+  
     if (!isset($affected)) {
         // error message
     }
-}
+ }
 
 /*
 	Handle http DELETE requests which are used by the CloudPRNT device to clear a print job from the server.
