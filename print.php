@@ -55,7 +55,7 @@ function getQueueIDAndPrintingState($db, $mac) {
 function handleGETRequest() {
     $host        = "host = 127.0.0.1";
     $port        = "port = 5432";
-    $dbname      = "dbname =starprints";
+    $dbname      = "dbname =prodstarprint";
     $credentials = "user = postgres password=password";
 
    $db = pg_connect( "$host $port $dbname $credentials"  );

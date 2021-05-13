@@ -1,4 +1,16 @@
 <?php
+        session_start();
+
+        if(!isset($_SESSION['user_id']))
+        {
+                header('location:index.php');
+                exit;
+        }
+
+
+?>
+
+<?php
 // Sample for querying the database, managing queue of job data information
 
 function addQueue($db, $name) {
@@ -52,7 +64,7 @@ function listQueues($db) {
 function handleGETRequest() {
     $host        = "host = 127.0.0.1";
     $port        = "port = 5432";
-    $dbname      = "dbname =starprints";
+    $dbname      = "dbname =prodstarprint";
     $credentials = "user = postgres password=password";
 
    $db = pg_connect( "$host $port $dbname $credentials"  ); 

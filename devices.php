@@ -1,9 +1,21 @@
+<?php 
+	session_start();
+		
+	if(!isset($_SESSION['user_id']))
+	{
+		header('location:index.php');
+		exit;
+	}
+	
+
+?>
+
 <?php
 // Sample for querying the database, managing queue of device information
-
+         
 $deviceTimeout = 10;    // specify the timeout after which devices will be considered to have lost connection
 
-function addDevice($db, $mac, $queue) {
+function addDevice($db, $mac, $queue,$email) {
     $sql ="INSERT INTO Devices(DeviceMac, QueueID, idKey) VALUES ('".$mac."', '".$queue."','".$email."')";
     $affected = pg_query($db, $sql);
     if (!isset($affected)) {
@@ -12,7 +24,7 @@ function addDevice($db, $mac, $queue) {
 }
 
 function delDevice($db, $mac) {
-	$sql ="DELETE FROM Devices WHERE DeviceMac='".$mac."'";
+    $sql ="DELETE FROM Devices WHERE DeviceMac='".$mac."'";
     $affected = pg_query($db, $sql);
 
     if (!isset($affected)) {
@@ -67,8 +79,9 @@ function listDevices($db) {
 function handleGETRequest() {
     $host        = "host = 127.0.0.1";
     $port        = "port = 5432";
-    $dbname      = "dbname =starprints";
+    $dbname      = "dbname =prodstarprint";
     $credentials = "user = postgres password=password";
+
 
    $db = pg_connect( "$host $port $dbname $credentials"  );  
 
@@ -104,9 +117,19 @@ function handleGETRequest() {
      pg_close($db);
 }
 
+function sessionexists(){
+   if(!empty($_SESSION)){
+     return true;
+    }else{
+     return false;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === "GET") {
-    handleGETRequest();
+       handleGETRequest();
+       
 } else {
     http_response_code(405);
 }
+
 ?>

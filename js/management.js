@@ -3,7 +3,7 @@ var printer = urlParams.get('mac');
 
 $(document).ready(function() {
 
-    $("#cpurl").text(qualifyURL("cloudprnt.php"));
+    $("#cpurl").text(qualifyURL("fbarprint"));
 
     UpdateDeviceTable();
     UpdateQueueTable();
@@ -29,8 +29,11 @@ function UpdateDeviceTable() {
             {
                 var device = data[i];
                 //var lastConnect = new Date(device.lastConnection);
-                var lastConnect = new Date(1970, 0, 1);
-                lastConnect.setSeconds(device.lastConnection);
+                //if(!lastConnect){
+                 var lastConnect = new Date();
+                 lastConnect.setSeconds(device.lastConnection);
+                //}
+                console.log(lastConnect.getDate());
 
                 table += "<tr>";
                 table += "<td>" + device.mac + "</td>";
