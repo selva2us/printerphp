@@ -79,7 +79,7 @@ function listDevices($db) {
 function handleGETRequest() {
     $host        = "host = 127.0.0.1";
     $port        = "port = 5432";
-    $dbname      = "dbname =prodstarprint";
+    $dbname      = "dbname =starprints";
     $credentials = "user = postgres password=password";
 
 

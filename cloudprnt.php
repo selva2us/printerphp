@@ -3,7 +3,7 @@
 
 $host        = "host = 127.0.0.1";
 $port        = "port = 5432";
-$dbname      = "dbname =prodstarprint";
+$dbname      = "dbname =starprints";
 $credentials = "user = postgres password=password";
 $db = pg_connect( "$host $port $dbname $credentials"  );      // database into a single table for easier passing between functions
 $cputilpath = "";
