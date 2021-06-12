@@ -56,11 +56,11 @@ function getCPConvertedJob($inputFile, $outputFormat, $deviceWidth, $outputFile)
 /*
 	Create the print job using Star Markup 
 */
-function renderMarkupJob($filename, $position, $queue, $design, $email,$printid) {
+function renderMarkupJob($filename, $position, $queue, $design, $email,$printid, $isBeverage) {
     $file = fopen($filename, 'w+');
 
     if ($file != FALSE) {
-        $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid;
+        $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&isBeverage='.$isBeverage;
         //$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/foobarappmsttest@gmail.com?token=514b6eb5-a166-455c-98e3-a858c08ba5ad';
 	   $json_data = file_get_contents($api_url);        
 	   fwrite($file,$json_data);   
@@ -105,14 +105,16 @@ function handleCloudPRNTGetJob($db) {
     //       but, this depends on the OS and distribution. If these files will be written to physical media then it may harm performance
     //       and cause unnecessary writes to disk.
     $mac = $_GET['mac'];
-    $sql ="SELECT idKey, printid FROM Devices WHERE DeviceMac = '".$mac."';";
+    $sql ="SELECT idKey, printid, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
     $results = pg_query($db, $sql);
     $email ="";
     $printid = "";
+    $isBeverage = "";
     if (isset($results)) {
         $row = pg_fetch_row($results);     // fetch next row
         $email = $row[0];
         $printid = $row[1];       
+        $isBeverage = $row[2];
     } else {
         // error message
     }
@@ -124,7 +126,7 @@ function handleCloudPRNTGetJob($db) {
     list($position, $queue, $width) = getDevicePrintingRequired($db, $_GET['mac']);    // Find which queue and position is pending for this printer
     $ticketDesign = getQueuePrintParameters($db, $queue);                              // Get design fields for this queue
     
-    renderMarkupJob($markupfile, $position, $queue, $ticketDesign, $email,$printid);
+    renderMarkupJob($markupfile, $position, $queue, $ticketDesign, $email,$printid, $isBeverage);
     
     getCPConvertedJob($markupfile, $content_type, $width, $outputfile);                // convert the Star Markup job into the format requested
                                                                                        // by the CloudPRNT device

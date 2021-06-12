@@ -22,7 +22,7 @@ function UpdateDeviceTable() {
         .done(function(data) {
             var table = "<table>"
 
-            table += "<thead><tr><th>Device</th><th style='width: 200px'>Status</th><th style='width: 150px'>Queue</th><th>Client Type</th><th>Last Connection</th><th>MerchantIdKey</th><th></th></thead>";
+            table += "<thead><tr><th>Device</th><th style='width: 200px'>Status</th><th style='width: 150px'>Queue</th><th>Client Type</th><th>Last Connection</th><th>MerchantIdKey</th><th>IsBeverage</th><th></th></thead>";
             table += '<tfoot><tr><td colspan="6"><div id="no-paging">&nbsp;<a href="javascript:NewDevice();">Register A New Device</a></div></tr></tfoot>';
 
             for(var i = 0; i < data.length; i++)
@@ -34,6 +34,13 @@ function UpdateDeviceTable() {
                  lastConnect.setSeconds(device.lastConnection);
                 //}
                 console.log(lastConnect.getDate());
+                var isbeverage = 'false';
+                if(device.isBeverage == 'f')
+                {
+			isbeverage = 'false'
+                }else{
+                        isbeverage = 'true'
+                }
 
                 table += "<tr>";
                 table += "<td>" + device.mac + "</td>";
@@ -42,6 +49,7 @@ function UpdateDeviceTable() {
                 table += "<td>" + device.clientType + " (" + device.clientVersion + ")</td>";
                 table += "<td>" + lastConnect.toLocaleString() + "</td>";
                 table += "<td>" + device.idKey + "</td>";
+                table += "<td>" + isbeverage + "</td>";
 
                 table += "<td>";
                 table += "<a href='print.html?mac=" + device.mac +"'>Show</a>";
@@ -103,14 +111,15 @@ function UpdateQueueTable() {
 function NewDevice()
 {
     var newMac = prompt("Please enter the Mac address of the device to be registered", "");
-    var newQ = prompt("Ender the ID of the queue to associate with the new device", "");
-    var email = prompt("Ender the merchant id key to associate with the new device", "");
+    var newQ = prompt("Enter the ID of the queue to associate with the new device", "");
+    var email = prompt("Enter the merchant id key to associate with the new device", "");
+    var isBeverage = prompt("Enter Beverage Printer true or false to associate with the new device", "");
 
 
     var lowerMac = newMac.toString().toLowerCase();
     newMac = lowerMac;
 
-    $.get("devices.php?new=" + newMac + "&queue=" + newQ + "&email=" + email);
+    $.get("devices.php?new=" + newMac + "&queue=" + newQ + "&email=" + email + "&isBeverage=" + isBeverage);
 }
 
 function delDevice(mac)

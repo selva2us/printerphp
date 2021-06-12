@@ -15,8 +15,8 @@
          
 $deviceTimeout = 10;    // specify the timeout after which devices will be considered to have lost connection
 
-function addDevice($db, $mac, $queue,$email) {
-    $sql ="INSERT INTO Devices(DeviceMac, QueueID, idKey) VALUES ('".$mac."', '".$queue."','".$email."')";
+function addDevice($db, $mac, $queue,$email, $isBeverage) {
+    $sql ="INSERT INTO Devices(DeviceMac, QueueID, idKey,isBeverage) VALUES ('".$mac."', '".$queue."','".$email."', '".$isBeverage."')";
     $affected = pg_query($db, $sql);
     if (!isset($affected)) {
         http_response_code(500);
@@ -34,7 +34,7 @@ function delDevice($db, $mac) {
 
 function listDevices($db) {
     global $deviceTimeout;
-	$sql ="SELECT DeviceMac, Status, QueueID, Queues.name, ClientType, ClientVersion, LastPoll, idKey FROM Devices INNER JOIN Queues ON Queues.id = Devices.QueueID";
+	$sql ="SELECT DeviceMac, Status, QueueID, Queues.name, ClientType, ClientVersion, LastPoll, idKey, isBeverage FROM Devices INNER JOIN Queues ON Queues.id = Devices.QueueID";
     $results = pg_query($db, $sql);
     $rdata = array();
     $count = 0;
@@ -65,6 +65,7 @@ function listDevices($db) {
             $rdata[$count] += array("lastConnection" => strval($row[6]));
             $rdata[$count] += array("lastPolledTime" => strval($secondsElapsed));
             $rdata[$count] += array("idKey" => strval($row[7]));
+            $rdata[$count] += array("isBeverage" => strval($row[8]));
 
             $count++;
         }
@@ -97,6 +98,11 @@ function handleGETRequest() {
         $email = $_GET['email'];
     }
 
+    if (!empty($_GET['isBeverage'])) {
+        $isBeverage = $_GET['isBeverage'];
+    }
+
+
     if (!empty($_GET['del'])) {
         $del = $_GET['del'];
     }
@@ -106,8 +112,8 @@ function handleGETRequest() {
         return;
     }
 
-    if (isset($new) && isset($queue) && isset($email)) {
-        addDevice($db, $new, $queue ,$email);
+    if (isset($new) && isset($queue) && isset($email) && isset($isBeverage)) {
+        addDevice($db, $new, $queue ,$email, $isBeverage);
     } elseif (isset($del)) {
         delDevice($db, $del);
     } else {
