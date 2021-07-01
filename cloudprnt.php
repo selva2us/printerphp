@@ -245,16 +245,22 @@ function handleCloudPRNTPoll($db) {
     //$pollResponse['deleteMethod'] = "GET";    // set jobReady to false by default, this is enough to provide the minimum cloudprnt response
 
      	$mac = $parsed['printerMAC'];
-	$sql ="SELECT idKey FROM Devices WHERE DeviceMac = '".$mac."';";
+	$sql ="SELECT idKey, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
 	$results = pg_query($db, $sql);
 	$email ="";
+        $isBeverage = false;
 	if (isset($results)) {
         $row = pg_fetch_row($results);     // fetch next row
         $email = $row[0];
+        $isBeverage = $row[1];
        
     } else {
         // error message
     }
+    $parsed['isBeverage'] = isBeverage;
+
+    echo $parsed;
+    
     $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email;
 	// use key 'http' even if you send the request to https://...
 	$options = array(
@@ -336,13 +342,14 @@ function handleCloudPRNTPoll($db) {
 	Clear a print job from the database, for the specified printer, but setting it's 'Position' field to 'null'
 */
 function setCompleteJob($db, $mac) {
-       	$ssql ="SELECT idKey , printid FROM Devices WHERE DeviceMac = '".$mac."';";
+       	$ssql ="SELECT idKey , printid , isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
 	$result = pg_query($db, $ssql);
 
           $row = pg_fetch_row($result);     // fetch next row
         $email = $row[0]; 
         $printid = $row[1];		
-		$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&code=OK';
+        $isBeverage = $row[2];
+		$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&code=OK&isBeverage='.$isBeverage;
 		$options = array(
 			'http' => array(
 			'method'  => 'DELETE',		
