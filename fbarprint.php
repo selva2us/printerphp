@@ -56,11 +56,11 @@ function getCPConvertedJob($inputFile, $outputFormat, $deviceWidth, $outputFile)
 /*
 	Create the print job using Star Markup 
 */
-function renderMarkupJob($filename, $position, $queue, $design, $email,$printid) {
+function renderMarkupJob($filename, $position, $queue, $design, $email,$printid, $isBeverage) {
     $file = fopen($filename, 'w+');
 
     if ($file != FALSE) {
-        $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid;
+        $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&isBeverage='.$isBeverage;
         //$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/foobarappmsttest@gmail.com?token=514b6eb5-a166-455c-98e3-a858c08ba5ad';
 	   $json_data = file_get_contents($api_url);        
 	   fwrite($file,$json_data);   
@@ -98,6 +98,7 @@ function getQueuePrintParameters($db, $queue) {
 }
 
 function handleCloudPRNTGetJob($db) {
+    error_log($db);
     $content_type = $_GET['type'];    // determine the media type that the cloudPRNT device is requesting
                                       // and set it as the content type for this GET response
     // create temporary files for storing the source print job and the version converted to the format requested by the cloudprnt device
@@ -105,14 +106,16 @@ function handleCloudPRNTGetJob($db) {
     //       but, this depends on the OS and distribution. If these files will be written to physical media then it may harm performance
     //       and cause unnecessary writes to disk.
     $mac = $_GET['mac'];
-    $sql ="SELECT idKey, printid FROM Devices WHERE DeviceMac = '".$mac."';";
+    $sql ="SELECT idKey, printid, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
     $results = pg_query($db, $sql);
     $email ="";
     $printid = "";
+    $isBeverage = "";
     if (isset($results)) {
         $row = pg_fetch_row($results);     // fetch next row
         $email = $row[0];
         $printid = $row[1];       
+        $isBeverage = $row[2];
     } else {
         // error message
     }
@@ -124,7 +127,7 @@ function handleCloudPRNTGetJob($db) {
     list($position, $queue, $width) = getDevicePrintingRequired($db, $_GET['mac']);    // Find which queue and position is pending for this printer
     $ticketDesign = getQueuePrintParameters($db, $queue);                              // Get design fields for this queue
     
-    renderMarkupJob($markupfile, $position, $queue, $ticketDesign, $email,$printid);
+    renderMarkupJob($markupfile, $position, $queue, $ticketDesign, $email,$printid, $isBeverage);
     
     getCPConvertedJob($markupfile, $content_type, $width, $outputfile);                // convert the Star Markup job into the format requested
                                                                                        // by the CloudPRNT device
@@ -243,27 +246,42 @@ function handleCloudPRNTPoll($db) {
     //$pollResponse['deleteMethod'] = "GET";    // set jobReady to false by default, this is enough to provide the minimum cloudprnt response
 
      	$mac = $parsed['printerMAC'];
-	$sql ="SELECT idKey FROM Devices WHERE DeviceMac = '".$mac."';";
+	$sql ="SELECT idKey, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
 	$results = pg_query($db, $sql);
 	$email ="";
+        $isBeverage = false;
 	if (isset($results)) {
         $row = pg_fetch_row($results);     // fetch next row
         $email = $row[0];
+        $isBeverage = $row[1];
        
     } else {
         // error message
     }
+    
+    // $parsed['isBeverage'] = false;
+  
+     if ($isBeverage == "f")
+     {
+      $isBeverage = false;
+     }else {
+       $isBeverage = true;
+     }
+
+    $data = array('isBeverage' => $isBeverage);
+    
+  
     $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email;
 	// use key 'http' even if you send the request to https://...
 	$options = array(
 	'http' => array(
     'method'  => 'POST',
-    'content' => json_encode( $parsed ),
+    'content' => json_encode( $parsed + $data ),
     'header'=>  "Content-Type: application/json\r\n" .
                 "Accept: application/json\r\n"
 		)
 	);
-
+        error_log(json_encode( $parsed + $data ));
 	$context  = stream_context_create($options);
 	$result = file_get_contents($api_url, false, $context);
 	if ($result === FALSE) { /* Handle error */ }
@@ -273,6 +291,7 @@ function handleCloudPRNTPoll($db) {
             $sql ="UPDATE Devices SET printing = 1 , printid = '".$printid."' WHERE DeviceMac= '".$mac."'";	
             $res = pg_query($db, $sql);
 	}
+        error_log( json_encode($response));
 
     $deviceRegistered = setDeviceStatus($db, $parsed['printerMAC'], urldecode($parsed['statusCode']));
 
@@ -327,20 +346,21 @@ function handleCloudPRNTPoll($db) {
     }
 
     header("Content-Type: application/json");
-    print_r(json_encode($pollResponse));
+    error_log(json_encode($pollResponse));
 }
 
 /*
 	Clear a print job from the database, for the specified printer, but setting it's 'Position' field to 'null'
 */
 function setCompleteJob($db, $mac) {
-       	$ssql ="SELECT idKey , printid FROM Devices WHERE DeviceMac = '".$mac."';";
+       	$ssql ="SELECT idKey , printid , isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
 	$result = pg_query($db, $ssql);
 
           $row = pg_fetch_row($result);     // fetch next row
         $email = $row[0]; 
         $printid = $row[1];		
-		$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&code=OK';
+        $isBeverage = $row[2];
+		$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&code=OK&isBeverage='.$isBeverage;
 		$options = array(
 			'http' => array(
 			'method'  => 'DELETE',		
@@ -385,12 +405,15 @@ function handleCloudPRNTDelete($db) {
     }
 }
 
+
 if (!isset($db) || empty($db)) {
     http_response_code(500);
 } elseif ($_SERVER['REQUEST_METHOD'] === "GET") {
     if(strpos($_SERVER['QUERY_STRING'], "&delete") !== false) {    // if server set "deleteMethod":"GET" in POST response
+        error_log("requestDELETE");
         handleCloudPRNTDelete($db);
     } else {    // Request a content of print job
+        error_log("request");
         handleCloudPRNTGetJob($db);
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === "POST") {
