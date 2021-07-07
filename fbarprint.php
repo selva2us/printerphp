@@ -59,12 +59,16 @@ function getCPConvertedJob($inputFile, $outputFormat, $deviceWidth, $outputFile)
 function renderMarkupJob($filename, $position, $queue, $design, $email,$printid, $isBeverage) {
     $file = fopen($filename, 'w+');
 
+
     if ($file != FALSE) {
         $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&isBeverage='.$isBeverage;
         //$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/foobarappmsttest@gmail.com?token=514b6eb5-a166-455c-98e3-a858c08ba5ad';
-	   $json_data = file_get_contents($api_url);        
+	   $json_data = file_get_contents($api_url);  
+           if(!isset($json_data) || trim($json_data === '')){         
+           }else{
 	   fwrite($file,$json_data);   
-       fclose($file);
+           }
+           fclose($file);          
     }
 }
 
@@ -98,7 +102,6 @@ function getQueuePrintParameters($db, $queue) {
 }
 
 function handleCloudPRNTGetJob($db) {
-    error_log($db);
     $content_type = $_GET['type'];    // determine the media type that the cloudPRNT device is requesting
                                       // and set it as the content type for this GET response
     // create temporary files for storing the source print job and the version converted to the format requested by the cloudprnt device
@@ -106,11 +109,16 @@ function handleCloudPRNTGetJob($db) {
     //       but, this depends on the OS and distribution. If these files will be written to physical media then it may harm performance
     //       and cause unnecessary writes to disk.
     $mac = $_GET['mac'];
-    $sql ="SELECT idKey, printid, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
+    //$s = $status;
+    //error_log($s);
+    $status = array("true", "false");
+    foreach ($status as $v) {
+    $sql ="SELECT idKey, printid, isBeverage FROM Devices WHERE isBeverage= '$v' AND DeviceMac = '".$mac."';";
+    error_log($sql);
     $results = pg_query($db, $sql);
     $email ="";
     $printid = "";
-    $isBeverage = "";
+    $isBeverage = "false";
     if (isset($results)) {
         $row = pg_fetch_row($results);     // fetch next row
         $email = $row[0];
@@ -120,25 +128,38 @@ function handleCloudPRNTGetJob($db) {
         // error message
     }
 
+     if($isBeverage == 't')
+        {
+          $isBeverage = "true";
+         }else {
+          $isBeverage = "false";
+        }
+    error_log($isBeverage);
+
     $basefile = tempnam(sys_get_temp_dir(), "markup");
     $markupfile = $basefile.".stm";                                                    // cputil used the filename to determing the format of the job that it is to convert
     $outputfile = tempnam(sys_get_temp_dir(), "output");
 
     list($position, $queue, $width) = getDevicePrintingRequired($db, $_GET['mac']);    // Find which queue and position is pending for this printer
     $ticketDesign = getQueuePrintParameters($db, $queue);                              // Get design fields for this queue
-    
     renderMarkupJob($markupfile, $position, $queue, $ticketDesign, $email,$printid, $isBeverage);
-    
+    $trimDir = trim($markupfile);
+    if(!empty($trimDir))    
+    {
     getCPConvertedJob($markupfile, $content_type, $width, $outputfile);                // convert the Star Markup job into the format requested
                                                                                        // by the CloudPRNT device
     header("Content-Type: ".$content_type);
     header("Content-Length: ".filesize($outputfile));
     readfile($outputfile);                                                             // return the converted job as the GET response
-    
+    }else{
+     	$sql="UPDATE Devices SET Printing = 0 , printid = '' WHERE isBeverage='$v' AND DeviceMac = '".$mac."';";
+	$affected = pg_query($db, $sql);
+    }
     // clean up the temporary files
     unlink($basefile);
     unlink($markupfile);
     unlink($outputfile);
+   }
 }
 
 /*
@@ -164,9 +185,9 @@ function getCPSupportedOutputs($input) {
 	Return the position, queue ID and device print width if printing is required
 */
 function getDevicePrintingRequired($db, $mac) {
-	$sql ="SELECT Printing, QueueID, DotWidth FROM Devices WHERE DeviceMac = '".$mac."';";
+    // $s = $status;
+	$sql ="SELECT Printing, QueueID, DotWidth FROM Devices WHERE  DeviceMac = '".$mac."';";
     $results = pg_query($db, $sql);
-
     if (isset($results)) {
         $row = pg_fetch_row($results);     // fetch next row
 
@@ -246,10 +267,16 @@ function handleCloudPRNTPoll($db) {
     //$pollResponse['deleteMethod'] = "GET";    // set jobReady to false by default, this is enough to provide the minimum cloudprnt response
 
      	$mac = $parsed['printerMAC'];
-	$sql ="SELECT idKey, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
+       // $s = $status;
+
+        $status = array("true");
+        foreach ($status as $v) {
+
+	$sql ="SELECT idKey, isBeverage FROM Devices WHERE  isBeverage= '$v' AND DeviceMac = '".$mac."';";
+
 	$results = pg_query($db, $sql);
 	$email ="";
-        $isBeverage = false;
+        $isBeverage = "false";
 	if (isset($results)) {
         $row = pg_fetch_row($results);     // fetch next row
         $email = $row[0];
@@ -261,11 +288,11 @@ function handleCloudPRNTPoll($db) {
     
     // $parsed['isBeverage'] = false;
   
-     if ($isBeverage == "f")
+     if ($isBeverage == 'f')
      {
-      $isBeverage = false;
+      $isBeverage = "false";
      }else {
-       $isBeverage = true;
+       $isBeverage = "true";
      }
 
     $data = array('isBeverage' => $isBeverage);
@@ -346,7 +373,8 @@ function handleCloudPRNTPoll($db) {
     }
 
     header("Content-Type: application/json");
-    error_log(json_encode($pollResponse));
+    print_r(json_encode($pollResponse));
+   }
 }
 
 /*
@@ -355,11 +383,21 @@ function handleCloudPRNTPoll($db) {
 function setCompleteJob($db, $mac) {
        	$ssql ="SELECT idKey , printid , isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
 	$result = pg_query($db, $ssql);
-
+       // $isBeverage = false; 
           $row = pg_fetch_row($result);     // fetch next row
+
+        if(trim($row[1]) === ''){ 
+        }else{
         $email = $row[0]; 
         $printid = $row[1];		
         $isBeverage = $row[2];
+         if ($isBeverage == 'f')
+         {
+           $isBeverage = "false";
+         }else {
+           $isBeverage = "true";
+         }
+
 		$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&code=OK&isBeverage='.$isBeverage;
 		$options = array(
 			'http' => array(
@@ -377,6 +415,7 @@ function setCompleteJob($db, $mac) {
     if (!isset($affected)) {
         // error message
     }
+   }
  }
 
 /*
@@ -405,19 +444,19 @@ function handleCloudPRNTDelete($db) {
     }
 }
 
-
+error_log($_SERVER['REQUEST_METHOD']);
 if (!isset($db) || empty($db)) {
     http_response_code(500);
 } elseif ($_SERVER['REQUEST_METHOD'] === "GET") {
     if(strpos($_SERVER['QUERY_STRING'], "&delete") !== false) {    // if server set "deleteMethod":"GET" in POST response
-        error_log("requestDELETE");
         handleCloudPRNTDelete($db);
     } else {    // Request a content of print job
-        error_log("request");
-        handleCloudPRNTGetJob($db);
+       handleCloudPRNTGetJob($db);
+      //handleCloudPRNTGetJob($db, "false");
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === "POST") {
     handleCloudPRNTPoll($db);
+    //handleCloudPRNTPoll($db , "false");
 } elseif ($_SERVER['REQUEST_METHOD'] === "DELETE") {
     handleCloudPRNTDelete($db);
 } else {
