@@ -64,10 +64,7 @@ function renderMarkupJob($filename, $position, $queue, $design, $email,$printid,
         $api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/'.$email.'?token='.$printid.'&isBeverage='.$isBeverage;
         //$api_url = 'https://test01.myfoobarapp.com/fbar/v1/printer/foobarappmsttest@gmail.com?token=514b6eb5-a166-455c-98e3-a858c08ba5ad';
 	   $json_data = file_get_contents($api_url);  
-           if(!isset($json_data) || trim($json_data === '')){         
-           }else{
 	   fwrite($file,$json_data);   
-           }
            fclose($file);          
     }
 }
@@ -111,9 +108,7 @@ function handleCloudPRNTGetJob($db) {
     $mac = $_GET['mac'];
     //$s = $status;
     //error_log($s);
-    $status = array("true", "false");
-    foreach ($status as $v) {
-    $sql ="SELECT idKey, printid, isBeverage FROM Devices WHERE isBeverage= '$v' AND DeviceMac = '".$mac."';";
+    $sql ="SELECT idKey, printid, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
     error_log($sql);
     $results = pg_query($db, $sql);
     $email ="";
@@ -143,23 +138,16 @@ function handleCloudPRNTGetJob($db) {
     list($position, $queue, $width) = getDevicePrintingRequired($db, $_GET['mac']);    // Find which queue and position is pending for this printer
     $ticketDesign = getQueuePrintParameters($db, $queue);                              // Get design fields for this queue
     renderMarkupJob($markupfile, $position, $queue, $ticketDesign, $email,$printid, $isBeverage);
-    $trimDir = trim($markupfile);
-    if(!empty($trimDir))    
-    {
     getCPConvertedJob($markupfile, $content_type, $width, $outputfile);                // convert the Star Markup job into the format requested
                                                                                        // by the CloudPRNT device
     header("Content-Type: ".$content_type);
     header("Content-Length: ".filesize($outputfile));
     readfile($outputfile);                                                             // return the converted job as the GET response
-    }else{
-     	$sql="UPDATE Devices SET Printing = 0 , printid = '' WHERE isBeverage='$v' AND DeviceMac = '".$mac."';";
-	$affected = pg_query($db, $sql);
-    }
+    
     // clean up the temporary files
     unlink($basefile);
     unlink($markupfile);
     unlink($outputfile);
-   }
 }
 
 /*
@@ -269,10 +257,25 @@ function handleCloudPRNTPoll($db) {
      	$mac = $parsed['printerMAC'];
        // $s = $status;
 
-        $status = array("true");
-        foreach ($status as $v) {
-
-	$sql ="SELECT idKey, isBeverage FROM Devices WHERE  isBeverage= '$v' AND DeviceMac = '".$mac."';";
+        $csql ="SELECT idKey, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
+        $cresults = pg_query($db, $csql);
+        $count=pg_num_rows($cresults);
+        if($count == 2) {
+                if (isset($cresults)) {
+                $crow = pg_fetch_row($cresults);
+                if($crow[1] == 'f'){
+                $usql = "UPDATE Devices SET isBeverage = true WHERE isBeverage = false AND DeviceMac = '".$mac."';";
+                error_log($usql);
+                $uaffected = pg_query($db, $usql); 
+                }else{
+                 $usql = "UPDATE Devices SET isBeverage = false WHERE isBeverage = true AND DeviceMac = '".$mac."';";
+                 error_log($usql);
+                $uaffected = pg_query($db, $usql);
+                }
+             }
+         }
+            
+	$sql ="SELECT idKey, isBeverage FROM Devices WHERE DeviceMac = '".$mac."';";
 
 	$results = pg_query($db, $sql);
 	$email ="";
@@ -374,7 +377,7 @@ function handleCloudPRNTPoll($db) {
 
     header("Content-Type: application/json");
     print_r(json_encode($pollResponse));
-   }
+   
 }
 
 /*
@@ -386,8 +389,6 @@ function setCompleteJob($db, $mac) {
        // $isBeverage = false; 
           $row = pg_fetch_row($result);     // fetch next row
 
-        if(trim($row[1]) === ''){ 
-        }else{
         $email = $row[0]; 
         $printid = $row[1];		
         $isBeverage = $row[2];
@@ -415,7 +416,7 @@ function setCompleteJob($db, $mac) {
     if (!isset($affected)) {
         // error message
     }
-   }
+   
  }
 
 /*
